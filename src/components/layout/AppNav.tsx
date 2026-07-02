@@ -24,11 +24,11 @@ export function AppNav() {
         <div className="flex items-center gap-4">
           <Link to="/app" className="flex items-center gap-2">
             {/* overflow-hidden crops the bottom ~30% where VERUS text sits */}
-            <div style={{ width: 48, height: 48, overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ width: 36, height: 36, overflow: 'hidden', flexShrink: 0 }}>
               <img
                 src="/logo.png"
                 alt="Verus logo"
-                style={{ width: 48, height: 67, objectFit: 'cover', objectPosition: 'top' }}
+                style={{ width: 36, height: 50, objectFit: 'cover', objectPosition: 'top' }}
               />
             </div>
             <span className="font-display text-lg text-[var(--text-primary)]">Verus</span>
