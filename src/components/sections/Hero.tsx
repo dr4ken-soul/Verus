@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { GhostNav } from '../layout/GhostNav'
 import { GeometricGrid } from './GeometricGrid'
+import { useStellarWallet } from '../../hooks/useStellarWallet'
 
 /**
  * Landing hero section.
@@ -11,6 +13,28 @@ import { GeometricGrid } from './GeometricGrid'
  * not the split layout used on prior projects.
  */
 export function Hero() {
+  const navigate = useNavigate()
+  const { wallet, connect } = useStellarWallet()
+  const [connecting, setConnecting] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
+
+  async function handleCta() {
+    if (wallet.isConnected) {
+      navigate('/app/verify')
+      return
+    }
+    setConnecting(true)
+    try {
+      await connect()
+      setConfirmed(true)
+      // Brief confirmation flash before entering the app
+      setTimeout(() => navigate('/app/verify'), 800)
+    } catch {
+      // connect() already surfaces errors via the wallet kit modal
+    } finally {
+      setConnecting(false)
+    }
+  }
   return (
     <section className="relative min-h-[100dvh] overflow-hidden">
       {/* Hero image: public/images/hero-sphere.webp.jpeg
@@ -79,13 +103,15 @@ export function Hero() {
           animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
           transition={{ delay: 1.0, duration: 0.6 }}
         >
-          <Link
-            to="/app/verify"
+          <button
+            onClick={handleCta}
+            disabled={connecting}
             className="inline-block liquid-glass-strong rounded-full px-6 py-3 mt-6 font-body
-              text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+              text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors
+              disabled:opacity-60 disabled:cursor-wait"
           >
-            Generate a proof
-          </Link>
+            {confirmed ? 'Wallet connected — entering app...' : connecting ? 'Connecting wallet...' : 'Generate a proof'}
+          </button>
         </motion.div>
       </div>
     </section>

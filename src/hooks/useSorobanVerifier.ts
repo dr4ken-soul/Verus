@@ -47,8 +47,10 @@ export function useSorobanVerifier() {
         setProofStatus('submitted')
       } catch (caughtError) {
         logger.error('On-chain submission failed', { caughtError })
-        setProofStatus('failed')
-        setError('Could not verify proof on-chain. Check your wallet connection and try again')
+        // Keep status 'valid' so the proof stays and the user can retry submit
+        // without having to regenerate from scratch.
+        setProofStatus('valid')
+        setError('Submission failed. Check that Freighter is on Testnet and your account has XLM, then try again.')
       }
     },
     [wallet.address, signTransaction, setProofStatus]
