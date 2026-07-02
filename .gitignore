@@ -3,6 +3,9 @@ dist
 .env
 *.log
 
+# Rust build output — regenerate with: cargo build --target wasm32v1-none --release
+contracts/verus_verifier/target/
+
 # Generated proving artifacts (large binary files, regenerate via circuits/setup.sh)
 circuits/*.ptau
 circuits/*.zkey
