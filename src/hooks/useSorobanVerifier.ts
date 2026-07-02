@@ -47,10 +47,11 @@ export function useSorobanVerifier() {
         setProofStatus('submitted')
       } catch (caughtError) {
         logger.error('On-chain submission failed', { caughtError })
-        // Keep status 'valid' so the proof stays and the user can retry submit
+        // Keep status 'valid' so the proof stays and the user can retry
         // without having to regenerate from scratch.
         setProofStatus('valid')
-        setError('Submission failed. Check that Freighter is on Testnet and your account has XLM, then try again.')
+        const detail = caughtError instanceof Error ? caughtError.message : String(caughtError)
+        setError(`Submission failed: ${detail}`)
       }
     },
     [wallet.address, signTransaction, setProofStatus]

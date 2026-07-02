@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { GhostNav } from '../layout/GhostNav'
 import { GeometricGrid } from './GeometricGrid'
 import { useStellarWallet } from '../../hooks/useStellarWallet'
+import { useAppStore } from '../../store/useAppStore'
+import { shortenAddress } from '../../lib/utils'
 
 /**
  * Landing hero section.
@@ -26,9 +28,16 @@ export function Hero() {
     setConnecting(true)
     try {
       await connect()
+      // Read store synchronously — only navigate if a wallet was actually selected.
+      // connect() resolves when the modal closes, not when a wallet is picked.
+      const { wallet: current } = useAppStore.getState()
+      if (!current.isConnected) {
+        // Modal was closed without selecting — do nothing.
+        return
+      }
       setConfirmed(true)
-      // Brief confirmation flash before entering the app
-      setTimeout(() => navigate('/app/verify'), 800)
+      // Brief confirmation flash (1.2 s) so user sees their address, then enter app.
+      setTimeout(() => navigate('/app/verify'), 1200)
     } catch {
       // connect() already surfaces errors via the wallet kit modal
     } finally {
@@ -114,6 +123,39 @@ export function Hero() {
           </button>
         </motion.div>
       </div>
+      {/* Wallet connected confirmation overlay */}
+      <AnimatePresence>
+        {confirmed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center"
+            style={{ background: 'rgba(5,5,8,0.7)', backdropFilter: 'blur(8px)' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="liquid-glass-dark rounded-[var(--radius-lg)] p-10 max-w-sm w-full text-center"
+              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              {/* Check circle */}
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
+                style={{ background: 'rgba(var(--success-rgb, 74 222 128) / 0.15)' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--success, #4ade80)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="font-display text-xl text-[var(--text-primary)] mb-2">Wallet connected</p>
+              <p className="font-mono text-sm text-[var(--accent)] mb-4">
+                {shortenAddress(useAppStore.getState().wallet.address ?? '')}
+              </p>
+              <p className="font-body text-sm text-[var(--text-secondary)]">Entering app...</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }

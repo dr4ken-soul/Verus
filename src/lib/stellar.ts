@@ -104,7 +104,20 @@ export async function buildVerifyTransaction(
     .setTimeout(60)
     .build()
 
-  const prepared = await server.prepareTransaction(tx)
+  let prepared
+  try {
+    prepared = await server.prepareTransaction(tx)
+  } catch (err: unknown) {
+    // prepareTransaction wraps the simulation result. Extract the readable
+    // error string so it surfaces properly in the UI.
+    const detail =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : String(err)
+    throw new Error(`Soroban simulation failed: ${detail}`)
+  }
   return prepared
 }
 
