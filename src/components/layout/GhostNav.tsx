@@ -15,11 +15,13 @@ export function GhostNav() {
     <nav className="fixed top-0 inset-x-0 z-50 px-8 py-6">
       <div className="flex items-center justify-between max-w-6xl mx-auto">
         <Link to="/" className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="Verus"
-            className="h-8 w-8 object-contain"
-          />
+          <div style={{ width: 48, height: 48, overflow: 'hidden', flexShrink: 0 }}>
+            <img
+              src="/logo.png"
+              alt="Verus logo"
+              style={{ width: 48, height: 67, objectFit: 'cover', objectPosition: 'top' }}
+            />
+          </div>
           <span className="font-display text-xl text-[var(--text-primary)] tracking-tight">Verus</span>
         </Link>
         {wallet.isConnected ? (
