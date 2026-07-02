@@ -22,9 +22,14 @@ export function AppNav() {
     <nav className="liquid-glass-dark fixed top-0 inset-x-0 z-50 px-8 py-4">
       <div className="flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-4">
-          {/* Logo slot: replace with public/logo.svg once provided */}
-          <Link to="/app" className="font-display text-lg text-[var(--text-primary)]">
-            Verus
+          <Link to="/app" className="flex items-center gap-3">
+            <img
+              src="/logo.jpeg"
+              alt="Verus"
+              className="h-8 w-8 object-cover rounded-sm"
+              style={{ mixBlendMode: 'screen' }}
+            />
+            <span className="font-display text-lg text-[var(--text-primary)]">Verus</span>
           </Link>
           {wallet.address && (
             <span className="font-mono text-xs text-[var(--text-muted)]">

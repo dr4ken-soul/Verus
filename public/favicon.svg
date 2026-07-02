@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Verus V mark — white on transparent, readable at any size -->
+  <polygon
+    points="10,15 42,85 50,68 58,85 90,15 75,15 50,65 25,15"
+    fill="white"
+  />
+</svg>
