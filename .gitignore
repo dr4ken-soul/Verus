@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+*.log
+
+# Generated proving artifacts (large binary files, regenerate via circuits/setup.sh)
+circuits/*.ptau
+circuits/*.zkey
+circuits/*_js/
+circuits/*.r1cs
+circuits/*.sym
+
+.DS_Store
