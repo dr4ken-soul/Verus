@@ -22,15 +22,12 @@ export function AppNav() {
     <nav className="liquid-glass-dark fixed top-0 inset-x-0 z-50 px-8 py-4">
       <div className="flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-4">
-          <Link to="/app" className="flex items-center gap-3">
-            <div className="h-8 w-8 overflow-hidden flex-shrink-0">
-              <img
-                src="/logo.png"
-                alt="Verus"
-                className="w-full object-cover object-top"
-                style={{ height: '140%' }}
-              />
-            </div>
+          <Link to="/app" className="flex items-center gap-2">
+            <img
+              src="/logo.png"
+              alt="Verus"
+              className="h-8 w-8 object-contain"
+            />
             <span className="font-display text-lg text-[var(--text-primary)]">Verus</span>
           </Link>
           {wallet.address && (
