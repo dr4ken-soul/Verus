@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore'
 import { relativeTime } from '../lib/utils'
 import { fetchAllIssuerVerifications } from '../lib/stellar'
 import { logger } from '../lib/utils'
+import { useStellarWallet } from '../hooks/useStellarWallet'
 
 /**
  * Dashboard page.
@@ -16,12 +17,13 @@ import { logger } from '../lib/utils'
 export function Dashboard() {
   const issuers = useAppStore((state) => state.issuers)
   const setIssuers = useAppStore((state) => state.setIssuers)
+  const { wallet } = useStellarWallet()
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function loadIssuers() {
       try {
-        const records = await fetchAllIssuerVerifications()
+        const records = await fetchAllIssuerVerifications(wallet.address ?? undefined)
         setIssuers(records)
       } catch (error) {
         logger.error('Could not load issuer verifications', { error })
@@ -30,7 +32,7 @@ export function Dashboard() {
       }
     }
     loadIssuers()
-  }, [setIssuers])
+  }, [setIssuers, wallet.address])
 
   const recent = issuers.slice(0, 5)
   const averageAgeLabel = issuers.length > 0 ? relativeTime(issuers[0].verifiedAt) : 'No proofs yet'

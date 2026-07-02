@@ -6,6 +6,7 @@ import { useAppStore } from '../store/useAppStore'
 import { relativeTime } from '../lib/utils'
 import { fetchAllIssuerVerifications } from '../lib/stellar'
 import { logger } from '../lib/utils'
+import { useStellarWallet } from '../hooks/useStellarWallet'
 
 /**
  * Issuers page.
@@ -16,13 +17,16 @@ import { logger } from '../lib/utils'
 export function Issuers() {
   const issuers = useAppStore((state) => state.issuers)
   const setIssuers = useAppStore((state) => state.setIssuers)
+  const { wallet } = useStellarWallet()
   const [isLoading, setIsLoading] = useState(true)
   const [query, setQuery] = useState('')
 
   useEffect(() => {
     async function loadIssuers() {
       try {
-        const records = await fetchAllIssuerVerifications()
+        // Pass the connected wallet address so the RPC simulation uses a real
+        // funded account — the mock throwaway is rejected by some testnet nodes.
+        const records = await fetchAllIssuerVerifications(wallet.address ?? undefined)
         setIssuers(records)
       } catch (error) {
         logger.error('Could not load issuer verifications', { error })
@@ -31,7 +35,7 @@ export function Issuers() {
       }
     }
     loadIssuers()
-  }, [setIssuers])
+  }, [setIssuers, wallet.address])
 
   const filtered = issuers.filter(
     (issuer) =>

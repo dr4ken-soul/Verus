@@ -7,9 +7,10 @@ import {
   nativeToScVal,
   scValToNative,
   Address,
+  Account,
 } from '@stellar/stellar-sdk'
 import type { Groth16Proof, IssuerVerification } from '../types'
-import { encodeG1, encodeG2, decimalToBytes32BE } from './encoding'
+import { encodeG1, encodeG2 } from './encoding'
 import { isVerificationStale } from './utils'
 
 const NETWORK = import.meta.env.VITE_STELLAR_NETWORK === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET
@@ -37,51 +38,42 @@ export function getVerifierContract(): Contract {
 }
 
 /**
- * Converts a Groth16 proof object as produced by snarkjs into an ScVal
- * matching the verus_verifier contract's Proof struct.
+ * Encodes the three components of a Groth16 proof as three separate ScvBytes
+ * values that map to the contract's flat Bytes arguments.
  *
- * A plain JS object converts to an scvMap via nativeToScVal, which matches
- * how soroban-sdk represents a #[contracttype] struct with named fields.
- * This has not been confirmed against a deployed contract, since the
- * contract could not be compiled in the environment this project was
- * scaffolded in. Once deployed, prefer running
- * `stellar contract bindings typescript` and using the generated client
- * instead of this hand-rolled encoding, since generated bindings remove
- * this entire category of mismatch risk.
- * @param proof - the raw Groth16 proof from snarkjs
+ * The contract's verify_reserve_proof function accepts proof_a, proof_b,
+ * proof_c as TOP-LEVEL Bytes arguments (not inside a #[contracttype] struct).
+ * This avoids the map_unpack_to_linear_memory host-function type-mismatch
+ * that occurs when using struct arguments from JavaScript.
+ *
+ * Public signals (isValid, threshold) are derived on-chain from the threshold
+ * u64 argument, so they do not need to be passed from JavaScript.
  */
-function encodeProofStruct(proof: Groth16Proof) {
-  return nativeToScVal({
-    a: encodeG1(proof.pi_a),
-    b: encodeG2(proof.pi_b),
-    c: encodeG1(proof.pi_c),
-  })
-}
-
-/**
- * Encodes the public signals array (isValid, threshold) as a Soroban
- * vector of 32-byte BN254 scalar field elements.
- * @param publicSignals - the public signals from the proof, [isValid, threshold]
- */
-function encodePublicSignals(publicSignals: string[]) {
-  return nativeToScVal(publicSignals.map((signal) => decimalToBytes32BE(signal)))
+function encodeProofArgs(proof: Groth16Proof): [ReturnType<typeof nativeToScVal>, ReturnType<typeof nativeToScVal>, ReturnType<typeof nativeToScVal>] {
+  return [
+    nativeToScVal(encodeG1(proof.pi_a)),   // proof_a: Bytes (64)
+    nativeToScVal(encodeG2(proof.pi_b)),   // proof_b: Bytes (128)
+    nativeToScVal(encodeG1(proof.pi_c)),   // proof_c: Bytes (64)
+  ]
 }
 
 /**
  * Builds and prepares a Soroban transaction calling the verifier contract's
- * verify_reserve_proof function with the supplied proof. The transaction
- * is returned unsigned, ready for the connected wallet to sign.
+ * verify_reserve_proof function with the supplied proof.
+ *
+ * The new contract API accepts the proof as three separate Bytes arguments
+ * (proof_a, proof_b, proof_c) rather than a Proof struct, and derives the
+ * public signals (isValid=1, threshold) on-chain from the threshold u64.
+ *
  * @param sourceAccount - the issuer's Stellar account, loaded from the network
- * @param proof - the Groth16 proof object
- * @param publicSignals - public signals accompanying the proof, [isValid, threshold]
- * @param threshold - the declared threshold being proven
+ * @param proof - the Groth16 proof object from snarkjs
+ * @param threshold - the declared threshold being proven (decimal string)
  * @param asset - the asset code the threshold is denominated in
  * @param issuerName - the display name shown on the public issuer wall
  */
 export async function buildVerifyTransaction(
   sourceAccount: { accountId: () => string },
   proof: Groth16Proof,
-  publicSignals: string[],
   threshold: string,
   asset: string,
   issuerName: string
@@ -90,13 +82,16 @@ export async function buildVerifyTransaction(
   const account = await server.getAccount(sourceAccount.accountId())
   const contract = getVerifierContract()
 
+  const [proofA, proofB, proofC] = encodeProofArgs(proof)
+
   const args = [
     nativeToScVal(new Address(sourceAccount.accountId())),
     nativeToScVal(issuerName, { type: 'string' }),
     nativeToScVal(asset, { type: 'symbol' }),
     nativeToScVal(BigInt(threshold), { type: 'u64' }),
-    encodeProofStruct(proof),
-    encodePublicSignals(publicSignals),
+    proofA,   // proof_a: Bytes (64) — G1 affine point
+    proofB,   // proof_b: Bytes (128) — G2 affine point
+    proofC,   // proof_c: Bytes (64) — G1 affine point
   ]
 
   const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: NETWORK })
@@ -108,8 +103,6 @@ export async function buildVerifyTransaction(
   try {
     prepared = await server.prepareTransaction(tx)
   } catch (err: unknown) {
-    // prepareTransaction wraps the simulation result. Extract the readable
-    // error string so it surfaces properly in the UI.
     const detail =
       err instanceof Error
         ? err.message
@@ -151,27 +144,35 @@ export async function submitSignedTransaction(signedXdr: string): Promise<string
 /**
  * Queries the verifier contract for every recorded issuer verification.
  * Parses the raw Soroban ScVal return into the IssuerVerification shape
- * used throughout the frontend. Does not require a connected wallet.
+ * used throughout the frontend. Does not require a connected wallet, but
+ * passing the connected wallet's public key as sourceAddress lets the RPC
+ * node use a real funded account for the simulation call, which is more
+ * reliable than using a throwaway mock account.
+ * @param sourceAddress - optional funded Stellar public key for simulation
  */
-export async function fetchAllIssuerVerifications(): Promise<IssuerVerification[]> {
+export async function fetchAllIssuerVerifications(sourceAddress?: string): Promise<IssuerVerification[]> {
   const server = getServer()
 
-  // A short-circuit for when the contract address has not been configured yet.
-  // Avoids a network call that would fail with a misleading error.
   if (!VERIFIER_ADDRESS) {
     return []
   }
 
   const contract = getVerifierContract()
-  const account = await server.getAccount(
-    // A throwaway read-only simulation source. Soroban RPC simulation does not
-    // require the source account to exist or have any balance when it is used
-    // purely to simulate a read-only function call.
-    'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN'
-  ).catch(() => null)
 
+  // Prefer the caller's real funded account (more reliable for simulation).
+  // Fall back to a mock account with sequence 0 when no wallet is connected.
+  let account
+  if (sourceAddress) {
+    try {
+      account = await server.getAccount(sourceAddress)
+    } catch {
+      account = null
+    }
+  }
   if (!account) {
-    return []
+    // For read-only simulation the source account does not need to exist on-chain
+    // with a real balance — just a valid address and any sequence number.
+    account = new Account('GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN', '0')
   }
 
   const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: NETWORK })
@@ -179,34 +180,34 @@ export async function fetchAllIssuerVerifications(): Promise<IssuerVerification[
     .setTimeout(30)
     .build()
 
-  const simulated = await server.simulateTransaction(tx)
-  if (!rpc.Api.isSimulationSuccess(simulated) || !simulated.result?.retval) {
+  try {
+    const simulated = await server.simulateTransaction(tx)
+    if (!rpc.Api.isSimulationSuccess(simulated) || !simulated.result?.retval) {
+      return []
+    }
+
+    // scValToNative converts Vec<IssuerRecord> into a plain JS array whose
+    // keys match the contract struct field names (snake_case).
+    const rawRecords = scValToNative(simulated.result.retval) as Array<{
+      issuer_name: string
+      asset: string
+      threshold: bigint
+      verified_at: bigint
+    }>
+
+    return rawRecords.map((record, index) => {
+      const verifiedAt = Number(record.verified_at)
+      return {
+        issuerAddress: `record-${index}`,
+        issuerName: record.issuer_name,
+        asset: record.asset,
+        threshold: record.threshold.toString(),
+        proofTxHash: '',
+        verifiedAt,
+        isStale: isVerificationStale(verifiedAt),
+      } satisfies IssuerVerification
+    })
+  } catch {
     return []
   }
-
-  // scValToNative converts the Vec<IssuerRecord> ScVal into a plain JS array
-  // of objects matching the contract struct field names (snake_case).
-  const rawRecords = scValToNative(simulated.result.retval) as Array<{
-    issuer_name: string
-    asset: string
-    threshold: bigint
-    verified_at: bigint
-  }>
-
-  // The issuer address is the storage key in the contract, not part of the
-  // IssuerRecord struct itself. We cannot recover it from list_verifications
-  // alone without the address list from instance storage. Use the tx hash as
-  // a stable unique key instead.
-  return rawRecords.map((record, index) => {
-    const verifiedAt = Number(record.verified_at)
-    return {
-      issuerAddress: `record-${index}`,
-      issuerName: record.issuer_name,
-      asset: record.asset,
-      threshold: record.threshold.toString(),
-      proofTxHash: '',
-      verifiedAt,
-      isStale: isVerificationStale(verifiedAt),
-    } satisfies IssuerVerification
-  })
 }

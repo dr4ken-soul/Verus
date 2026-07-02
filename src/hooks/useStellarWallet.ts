@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import {
   StellarWalletsKit,
   WalletNetwork,
@@ -7,6 +7,8 @@ import {
 } from '@creit.tech/stellar-wallets-kit'
 import { useAppStore } from '../store/useAppStore'
 import { logger } from '../lib/utils'
+
+const WALLET_STORAGE_KEY = 'verus_wallet_connected'
 
 const kit = new StellarWalletsKit({
   network: import.meta.env.VITE_STELLAR_NETWORK === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
@@ -18,15 +20,43 @@ const kit = new StellarWalletsKit({
  * Hook for connecting and disconnecting a Stellar wallet via Stellar Wallets Kit.
  * Wraps the kit's connect flow and writes the resulting address into the
  * global store so any page can read the current connection state.
+ *
+ * Wallet state is persisted in localStorage so the connection survives
+ * page refreshes without requiring the user to re-approve in Freighter.
  */
 export function useStellarWallet() {
   const setWallet = useAppStore((state) => state.setWallet)
   const resetWallet = useAppStore((state) => state.resetWallet)
   const wallet = useAppStore((state) => state.wallet)
 
+  // On first mount, silently restore the wallet session if the user previously
+  // connected and Freighter still has the site whitelisted (isAllowed).
+  useEffect(() => {
+    if (wallet.isConnected) return  // already connected in store, nothing to do
+
+    const wasConnected = localStorage.getItem(WALLET_STORAGE_KEY) === 'true'
+    if (!wasConnected) return
+
+    // Attempt a silent reconnect — getAddress() resolves immediately if
+    // Freighter is unlocked and the site is still allowed, no popup shown.
+    kit.setWallet(FREIGHTER_ID)
+    kit.getAddress()
+      .then(({ address }) => {
+        if (address) {
+          setWallet({ address, isConnected: true })
+        }
+      })
+      .catch(() => {
+        // Freighter was removed or locked — clear the stale flag so the
+        // next visit starts fresh rather than attempting reconnect in a loop.
+        localStorage.removeItem(WALLET_STORAGE_KEY)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // intentionally empty — runs once on mount only
+
   /**
    * Opens the wallet selection modal and connects the chosen wallet.
-   * Updates the global wallet state once an address is returned.
+   * Persists the connection flag to localStorage so it survives refresh.
    */
   const connect = useCallback(async () => {
     try {
@@ -35,6 +65,7 @@ export function useStellarWallet() {
           kit.setWallet(option.id)
           const { address } = await kit.getAddress()
           setWallet({ address, isConnected: true })
+          localStorage.setItem(WALLET_STORAGE_KEY, 'true')
         },
       })
     } catch (error) {
@@ -44,10 +75,11 @@ export function useStellarWallet() {
   }, [setWallet])
 
   /**
-   * Disconnects the current wallet and clears the global wallet state.
+   * Disconnects the current wallet and clears the connection flag.
    */
   const disconnect = useCallback(() => {
     resetWallet()
+    localStorage.removeItem(WALLET_STORAGE_KEY)
   }, [resetWallet])
 
   /**

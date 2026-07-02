@@ -25,7 +25,7 @@ export function useSorobanVerifier() {
    * @returns the confirmed transaction hash once the proof is verified on Stellar
    */
   const submit = useCallback(
-    async (proof: Groth16Proof, publicSignals: string[], threshold: string, asset: string, issuerName: string) => {
+    async (proof: Groth16Proof, _publicSignals: string[], threshold: string, asset: string, issuerName: string) => {
       if (!wallet.address) {
         setError('Connect your wallet before submitting a proof')
         return
@@ -36,7 +36,6 @@ export function useSorobanVerifier() {
         const prepared = await buildVerifyTransaction(
           { accountId: () => wallet.address! },
           proof,
-          publicSignals,
           threshold,
           asset,
           issuerName
