@@ -46,7 +46,7 @@ export function Hero() {
       <GeometricGrid />
       <GhostNav />
 
-      <div className="absolute bottom-16 left-8 right-8 max-w-xl">
+      <div className="absolute inset-x-8 max-w-xl" style={{ top: '50%', transform: 'translateY(-45%)' }}>
         <motion.span
           initial={{ opacity: 0, filter: 'blur(8px)', y: 20 }}
           animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}

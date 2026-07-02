@@ -16,10 +16,9 @@ export function GhostNav() {
       <div className="flex items-center justify-between max-w-6xl mx-auto">
         <Link to="/" className="flex items-center gap-3">
           <img
-            src="/logo.jpeg"
+            src="/logo.png"
             alt="Verus"
-            className="h-8 w-8 object-cover rounded-sm"
-            style={{ mixBlendMode: 'screen' }}
+            className="h-8 w-8 object-contain"
           />
           <span className="font-display text-xl text-[var(--text-primary)] tracking-tight">Verus</span>
         </Link>

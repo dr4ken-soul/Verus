@@ -24,10 +24,9 @@ export function AppNav() {
         <div className="flex items-center gap-4">
           <Link to="/app" className="flex items-center gap-3">
             <img
-              src="/logo.jpeg"
+              src="/logo.png"
               alt="Verus"
-              className="h-8 w-8 object-cover rounded-sm"
-              style={{ mixBlendMode: 'screen' }}
+              className="h-8 w-8 object-contain"
             />
             <span className="font-display text-lg text-[var(--text-primary)]">Verus</span>
           </Link>
