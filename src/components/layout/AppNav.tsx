@@ -42,7 +42,7 @@ export function AppNav() {
             {/* overflow-hidden crops the bottom ~30% where VERUS text sits */}
             <div style={{ width: 36, height: 36, overflow: 'hidden', flexShrink: 0 }}>
               <img
-                src="/logo.png"
+                src="/images/logo.png"
                 alt="Verus logo"
                 style={{ width: 36, height: 50, objectFit: 'cover', objectPosition: 'top' }}
               />
