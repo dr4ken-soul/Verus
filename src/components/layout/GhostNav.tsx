@@ -17,7 +17,7 @@ export function GhostNav() {
         <Link to="/" className="flex items-center gap-3">
           <div style={{ width: 36, height: 36, overflow: 'hidden', flexShrink: 0 }}>
             <img
-              src="/images/logo.png"
+              src="/logo.png"
               alt="Verus logo"
               style={{ width: 36, height: 50, objectFit: 'cover', objectPosition: 'top' }}
             />
